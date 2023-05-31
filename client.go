@@ -6,6 +6,11 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+type DLQMessage struct {
+	Topic string `json:"topic"`
+	Body  string `json:"body"`
+}
+
 type Client interface {
 	Disconnect()
 	Consume(map[string]chan []byte)
@@ -30,12 +35,17 @@ type KafkaClient struct {
 	Consumer         *kafka.Consumer
 	Producer         *kafka.Producer
 	dlqProducer      *kafka.Producer
+	TopicDLQ         string
 	LogFunction      func(string)
 	ErrorLogFunction func(string)
 }
 
 func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(string)) (*KafkaClient, error) {
-	client := &KafkaClient{LogFunction: logFunction, ErrorLogFunction: errorFunction}
+	client := &KafkaClient{
+		TopicDLQ:         c.serviceDLQ,
+		LogFunction:      logFunction,
+		ErrorLogFunction: errorFunction,
+	}
 	if c.consumer {
 		consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 			"bootstrap.servers": c.server,
@@ -68,6 +78,21 @@ func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(stri
 			return nil, err
 		}
 		client.Producer = producer
+
+		dlqProducer, err := kafka.NewProducer(&kafka.ConfigMap{
+			"bootstrap.servers": c.server,
+			"client.id":         c.clientId,
+			"security.protocol": c.securityProtocol,
+			"sasl.mechanism":    c.saslMechanism,
+			"sasl.username":     c.saslUser,
+			"sasl.password":     c.saslPass,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+		client.dlqProducer = dlqProducer
+
 		go func() {
 			for e := range client.Producer.Events() {
 				switch ev := e.(type) {
@@ -89,7 +114,22 @@ func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(stri
 }
 
 func (k *KafkaClient) sendToDLQ(m *kafka.Message) {
-
+	topic := *m.TopicPartition.Topic
+	message := m.Value
+	header := kafka.Header{
+		Key:   "topic",
+		Value: []byte(topic),
+	}
+	kMessage := &kafka.Message{
+		Headers:        []kafka.Header{header},
+		TopicPartition: kafka.TopicPartition{Topic: &k.TopicDLQ, Partition: kafka.PartitionAny},
+		Value:          message,
+	}
+	err := k.dlqProducer.Produce(kMessage, nil)
+	if err != nil {
+		k.ErrorLogFunction("KAFKA ERROR COULD NOT SEND TO DLQ: " + err.Error())
+	}
+	k.dlqProducer.Flush(15 * 1000)
 }
 
 func (k *KafkaClient) Produce(topic string, message []byte) {
