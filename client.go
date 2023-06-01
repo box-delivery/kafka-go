@@ -18,17 +18,17 @@ type Client interface {
 }
 
 type KafkaConfig struct {
-	producer         bool
-	consumer         bool
-	server           string
-	groupId          string
-	clientId         string
-	autoOffsetReset  string
-	securityProtocol string
-	saslMechanism    string
-	saslUser         string
-	saslPass         string
-	serviceDLQ       string
+	Producer         bool
+	Consumer         bool
+	Server           string
+	GroupId          string
+	ClientId         string
+	AutoOffsetReset  string
+	SecurityProtocol string
+	SaslMechanism    string
+	SaslUser         string
+	SaslPass         string
+	ServiceDLQ       string
 }
 
 type KafkaClient struct {
@@ -42,20 +42,20 @@ type KafkaClient struct {
 
 func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(string)) (*KafkaClient, error) {
 	client := &KafkaClient{
-		TopicDLQ:         c.serviceDLQ,
+		TopicDLQ:         c.ServiceDLQ,
 		LogFunction:      logFunction,
 		ErrorLogFunction: errorFunction,
 	}
-	if c.consumer {
+	if c.Consumer {
 		consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-			"bootstrap.servers": c.server,
-			"group.id":          c.groupId,
-			"client.id":         c.clientId,
-			"auto.offset.reset": c.autoOffsetReset,
-			"security.protocol": c.securityProtocol,
-			"sasl.mechanism":    c.saslMechanism,
-			"sasl.username":     c.saslUser,
-			"sasl.password":     c.saslPass,
+			"bootstrap.servers": c.Server,
+			"group.id":          c.GroupId,
+			"client.id":         c.ClientId,
+			"auto.offset.reset": c.AutoOffsetReset,
+			"security.protocol": c.SecurityProtocol,
+			"sasl.mechanism":    c.SaslMechanism,
+			"sasl.username":     c.SaslUser,
+			"sasl.password":     c.SaslPass,
 		})
 
 		if err != nil {
@@ -64,14 +64,14 @@ func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(stri
 		client.Consumer = consumer
 	}
 
-	if c.producer {
+	if c.Producer {
 		producer, err := kafka.NewProducer(&kafka.ConfigMap{
-			"bootstrap.servers": c.server,
-			"client.id":         c.clientId,
-			"security.protocol": c.securityProtocol,
-			"sasl.mechanism":    c.saslMechanism,
-			"sasl.username":     c.saslUser,
-			"sasl.password":     c.saslPass,
+			"bootstrap.servers": c.Server,
+			"client.id":         c.ClientId,
+			"security.protocol": c.SecurityProtocol,
+			"sasl.mechanism":    c.SaslMechanism,
+			"sasl.username":     c.SaslUser,
+			"sasl.password":     c.SaslPass,
 		})
 
 		if err != nil {
@@ -80,12 +80,12 @@ func NewClient(c *KafkaConfig, logFunction func(string), errorFunction func(stri
 		client.Producer = producer
 
 		dlqProducer, err := kafka.NewProducer(&kafka.ConfigMap{
-			"bootstrap.servers": c.server,
-			"client.id":         c.clientId,
-			"security.protocol": c.securityProtocol,
-			"sasl.mechanism":    c.saslMechanism,
-			"sasl.username":     c.saslUser,
-			"sasl.password":     c.saslPass,
+			"bootstrap.servers": c.Server,
+			"client.id":         c.ClientId,
+			"security.protocol": c.SecurityProtocol,
+			"sasl.mechanism":    c.SaslMechanism,
+			"sasl.username":     c.SaslUser,
+			"sasl.password":     c.SaslPass,
 		})
 
 		if err != nil {
